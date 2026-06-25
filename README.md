@@ -1,241 +1,245 @@
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-
-local Window = Rayfield:CreateWindow({
-   Name = "Lkz Mods",
-   LoadingTitle = "Lkz Mods | Clean ESP",
-   LoadingSubtitle = "Ajuste de Ativação Rígida",
-   ConfigurationSaving = { Enabled = false }
-})
-
--- // CONFIGURAÇÕES // --
-local Settings = {
-    Aimbot = false,
-    ShowFOV = false,
-    TeamCheck = false,
-    Precision = 45,
-    FOV = 120,
-    MaxDistance = 500,
-    TargetPart = "Head",
-    ESP = false,
-    Heal = false,
-    Skeleton = false,
-    Tracers = false,
-    MaxDistanceESP = 1500
-}
-
+-- VERSÃO DEFINITIVA: ULTRA-RÁPIDA (SEM DELAY) E COMPATÍVEL COM TODOS OS EXECUTORES
 local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
 
--- // FUNÇÃO DE VISIBILIDADE // --
-local function IsVisible(TargetPart)
-    if not TargetPart then return false end
-    local Origin = Camera.CFrame.Position
-    local Direction = (TargetPart.Position - Origin)
-    
-    local RayParams = RaycastParams.new()
-    RayParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
-    RayParams.FilterType = Enum.RaycastFilterType.Exclude
-    RayParams.IgnoreWater = true
-    
-    local Result = workspace:Raycast(Origin, Direction, RayParams)
-    
-    if Result then
-        return Result.Instance:IsDescendantOf(TargetPart.Parent)
-    end
-    return false
-end
+-- Usar PlayerGui garante que vai executar sem restrições do injetor
+local PastaGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- // FUNÇÃO DE DESENHO // --
-local function CreateLine(thickness, color)
-    local L = Drawing.new("Line")
-    L.Thickness = thickness or 1
-    L.Color = color or Color3.fromRGB(255, 0, 0)
-    L.Transparency = 1
-    L.Visible = false
-    return L
-end
+-- Evita duplicar elementos caso execute novamente
+if PastaGui:FindFirstChild("PainelEspMaster") then PastaGui.PainelEspMaster:Destroy() end
+if PastaGui:FindFirstChild("BotaoAlternarPainel") then PastaGui.BotaoAlternarPainel:Destroy() end
 
--- // SISTEMA DE VISUAIS // --
-local function CreateESP(Player)
-    local Box = Drawing.new("Square")
-    Box.Visible = false
-    Box.Thickness = 1
-    Box.Filled = false 
+-- 1. CRIANDO O BOTÃO DE ABRIR/FECHAR
+local ScreenBotao = Instance.new("ScreenGui")
+ScreenBotao.Name = "BotaoAlternarPainel"
+ScreenBotao.ResetOnSpawn = false
+ScreenBotao.Parent = PastaGui
 
-    local HealthOutline = CreateLine(2, Color3.new(0,0,0))
-    local HealthLine = CreateLine(1, Color3.new(0,255,0))
-    local Tracer = CreateLine(1, Color3.fromRGB(255, 0, 0))
-    
-    local DistanceText = Drawing.new("Text")
-    DistanceText.Size = 14
-    DistanceText.Center = true
-    DistanceText.Outline = true
-    DistanceText.Color = Color3.fromRGB(255, 255, 255)
-    DistanceText.Visible = false
-    
-    local Bones = {
-        H_T = CreateLine(1), T_LUA = CreateLine(1), T_RUA = CreateLine(1),
-        LUA_LLA = CreateLine(1), RUA_RLA = CreateLine(1), T_LUL = CreateLine(1), T_RUL = CreateLine(1),
-        LUL_LLL = CreateLine(1), RUL_RLL = CreateLine(1)
-    }
+local BotaoAlternar = Instance.new("TextButton")
+BotaoAlternar.Size = UDim2.new(0, 110, 0, 35)
+BotaoAlternar.Position = UDim2.new(0, 15, 0.5, -17)
+BotaoAlternar.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+BotaoAlternar.TextColor3 = Color3.fromRGB(255, 255, 255)
+BotaoAlternar.Text = "Abrir Painel"
+BotaoAlternar.Font = Enum.Font.SourceSansBold
+BotaoAlternar.TextSize = 14
+BotaoAlternar.BorderSizePixel = 0
+BotaoAlternar.Parent = ScreenBotao
 
-    RunService.RenderStepped:Connect(function()
-        local Char = Player.Character
-        if Char and Char:FindFirstChild("Humanoid") and Player ~= LocalPlayer and Char.Humanoid.Health > 0 then
-            local Root = Char:FindFirstChild("HumanoidRootPart")
-            local Head = Char:FindFirstChild("Head")
-            
-            if Root and Head then
-                local RootP, OnScreen = Camera:WorldToViewportPoint(Root.Position)
-                local MyRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                local Distance = MyRoot and (Root.Position - MyRoot.Position).Magnitude or 0
-                
-                if OnScreen and Distance <= Settings.MaxDistanceESP then
-                    local Visible = IsVisible(Head)
-                    local CurrentColor = Visible and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+local UICornerBotao = Instance.new("UICorner")
+UICornerBotao.CornerRadius = UDim.new(0, 6)
+UICornerBotao.Parent = BotaoAlternar
 
-                    local SizeY = (Char:GetModelSize().Y) * 1.2
-                    local Top = Camera:WorldToViewportPoint(Root.Position + Vector3.new(0, SizeY/2, 0))
-                    local Bottom = Camera:WorldToViewportPoint(Root.Position - Vector3.new(0, SizeY/2, 0))
-                    local Height = math.abs(Top.Y - Bottom.Y)
-                    local Width = Height / 1.8
+-- 2. CRIANDO O PAINEL COMPACTO
+local ScreenPainel = Instance.new("ScreenGui")
+ScreenPainel.Name = "PainelEspMaster"
+ScreenPainel.ResetOnSpawn = false
+ScreenPainel.Enabled = false -- Começa fechado
+ScreenPainel.Parent = PastaGui
 
-                    if Settings.ESP then
-                        Box.Position = Vector2.new(RootP.X - Width/2, RootP.Y - Height/2)
-                        Box.Size = Vector2.new(Width, Height)
-                        Box.Color = CurrentColor
-                        Box.Visible = true
-                        DistanceText.Position = Vector2.new(Box.Position.X + Width/2, Box.Position.Y + Height + 1)
-                        DistanceText.Text = math.floor(Distance) .. "m"
-                        DistanceText.Visible = true
-                    else Box.Visible = false DistanceText.Visible = false end
+local PainelGrande = Instance.new("Frame")
+PainelGrande.Size = UDim2.new(0, 380, 0, 240)
+PainelGrande.Position = UDim2.new(0.5, -190, 0.5, -120)
+PainelGrande.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+PainelGrande.BorderSizePixel = 0
+PainelGrande.Active = true
+PainelGrande.Draggable = true
+PainelGrande.Parent = ScreenPainel
 
-                    if Settings.Tracers then
-                        Tracer.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
-                        Tracer.To = Vector2.new(RootP.X, RootP.Y + (Height/2))
-                        Tracer.Color = CurrentColor
-                        Tracer.Visible = true
-                    else Tracer.Visible = false end
+local UICornerPainel = Instance.new("UICorner")
+UICornerPainel.CornerRadius = UDim.new(0, 6)
+UICornerPainel.Parent = PainelGrande
 
-                    if Settings.Heal then
-                        local HP = math.clamp(Char.Humanoid.Health / Char.Humanoid.MaxHealth, 0, 1)
-                        HealthOutline.From = Vector2.new(Box.Position.X - 5, Box.Position.Y + Box.Size.Y)
-                        HealthOutline.To = Vector2.new(Box.Position.X - 5, Box.Position.Y)
-                        HealthOutline.Visible = true
-                        HealthLine.From = HealthOutline.From
-                        HealthLine.To = Vector2.new(Box.Position.X - 5, Box.Position.Y + Box.Size.Y - (Box.Size.Y * HP))
-                        HealthLine.Color = Color3.new(1 - HP, HP, 0)
-                        HealthLine.Visible = true
-                    else HealthLine.Visible = false HealthOutline.Visible = false end
+-- Título
+local Titulo = Instance.new("TextLabel")
+Titulo.Size = UDim2.new(1, 0, 0, 30)
+Titulo.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+Titulo.Text = "  PAINEL ESP & INVENTÁRIO"
+Titulo.TextColor3 = Color3.fromRGB(255, 255, 255)
+Titulo.TextXAlignment = Enum.TextXAlignment.Left
+Titulo.Font = Enum.Font.SourceSansBold
+Titulo.TextSize = 14
+Titulo.Parent = PainelGrande
 
-                    if Settings.Skeleton then
-                        local function GetPos(n) 
-                            local p = Char:FindFirstChild(n) 
-                            if p then local v, os = Camera:WorldToViewportPoint(p.Position) return os and Vector2.new(v.X, v.Y) end 
-                            return nil 
-                        end
-                        local function Bind(l, a, b) 
-                            if a and b then 
-                                l.From = a l.To = b l.Color = CurrentColor l.Visible = true 
-                            else l.Visible = false end 
-                        end
-                        
-                        local Torso = Char:FindFirstChild("UpperTorso") or Char:FindFirstChild("Torso")
-                        local LUA = Char:FindFirstChild("LeftUpperArm") or Char:FindFirstChild("Left Arm")
-                        local RUA = Char:FindFirstChild("RightUpperArm") or Char:FindFirstChild("Right Arm")
-                        local LLA = Char:FindFirstChild("LeftLowerArm") or Char:FindFirstChild("Left Arm")
-                        local RLA = Char:FindFirstChild("RightLowerArm") or Char:FindFirstChild("Right Arm")
-                        local LUL = Char:FindFirstChild("LeftUpperLeg") or Char:FindFirstChild("Left Leg")
-                        local RUL = Char:FindFirstChild("RightUpperLeg") or Char:FindFirstChild("Right Leg")
-                        local LLL = Char:FindFirstChild("LeftLowerLeg") or Char:FindFirstChild("Left Leg")
-                        local RLL = Char:FindFirstChild("RightLowerLeg") or Char:FindFirstChild("Right Leg")
+-- Lista de Jogadores
+local ListaJogadores = Instance.new("ScrollingFrame")
+ListaJogadores.Size = UDim2.new(0, 160, 1, -40)
+ListaJogadores.Position = UDim2.new(0, 8, 0, 35)
+ListaJogadores.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+ListaJogadores.BorderSizePixel = 0
+ListaJogadores.ScrollBarThickness = 4
+ListaJogadores.Parent = PainelGrande
 
-                        Bind(Bones.H_T, GetPos("Head"), GetPos(Torso.Name))
-                        Bind(Bones.T_LUA, GetPos(Torso.Name), GetPos(LUA.Name))
-                        Bind(Bones.T_RUA, GetPos(Torso.Name), GetPos(RUA.Name))
-                        Bind(Bones.LUA_LLA, GetPos(LUA.Name), GetPos(LLA.Name))
-                        Bind(Bones.RUA_RLA, GetPos(RUA.Name), GetPos(RLA.Name))
-                        Bind(Bones.T_LUL, GetPos(Torso.Name), GetPos(LUL.Name))
-                        Bind(Bones.T_RUL, GetPos(Torso.Name), GetPos(RUL.Name))
-                        Bind(Bones.LUL_LLL, GetPos(LUL.Name), GetPos(LLL.Name))
-                        Bind(Bones.RUL_RLL, GetPos(RUL.Name), GetPos(RLL.Name))
-                    else for _, l in pairs(Bones) do l.Visible = false end end
-                else
-                    Box.Visible = false DistanceText.Visible = false Tracer.Visible = false HealthLine.Visible = false HealthOutline.Visible = false
-                    for _, l in pairs(Bones) do l.Visible = false end
-                end
-            end
-        else
-            Box.Visible = false DistanceText.Visible = false Tracer.Visible = false HealthLine.Visible = false HealthOutline.Visible = false
-            for _, l in pairs(Bones) do l.Visible = false end
-        end
-    end)
-end
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Padding = UDim.new(0, 3)
+UIListLayout.Parent = ListaJogadores
 
-for _, v in pairs(Players:GetPlayers()) do CreateESP(v) end
-Players.PlayerAdded:Connect(CreateESP)
+-- Tela de Informações do Inventário
+local TextoInventario = Instance.new("TextLabel")
+TextoInventario.Size = UDim2.new(1, -184, 1, -40)
+TextoInventario.Position = UDim2.new(0, 176, 0, 35)
+TextoInventario.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+TextoInventario.BorderSizePixel = 0
+TextoInventario.TextColor3 = Color3.fromRGB(255, 255, 255)
+TextoInventario.TextSize = 12
+TextoInventario.Font = Enum.Font.SourceSans
+TextoInventario.TextXAlignment = Enum.TextXAlignment.Left
+TextoInventario.TextYAlignment = Enum.TextYAlignment.Top
+TextoInventario.Text = " Selecione um jogador."
+TextoInventario.Parent = PainelGrande
 
--- // INTERFACE // --
-local AimTab = Window:CreateTab("AIMBOT")
-AimTab:CreateToggle({Name = "Ativar Aimbot", CurrentValue = false, Callback = function(V) Settings.Aimbot = V end})
-AimTab:CreateToggle({Name = "Exibir FOV", CurrentValue = false, Callback = function(V) Settings.ShowFOV = V end})
-AimTab:CreateToggle({Name = "Team Check", CurrentValue = false, Callback = function(V) Settings.TeamCheck = V end})
-AimTab:CreateSlider({Name = "FOV", Range = {10, 600}, Increment = 1, CurrentValue = 120, Callback = function(V) Settings.FOV = V end})
-AimTab:CreateSlider({Name = "Precisao (%)", Range = {0, 100}, Increment = 1, CurrentValue = 45, Callback = function(V) Settings.Precision = V end})
-AimTab:CreateSlider({Name = "Distancia Max", Range = {10, 2000}, Increment = 10, CurrentValue = 500, Callback = function(V) Settings.MaxDistance = V end})
-
-local VisualTab = Window:CreateTab("VISUAL")
-VisualTab:CreateToggle({Name = "ESP Box + Distancia", CurrentValue = false, Callback = function(V) Settings.ESP = V end})
-VisualTab:CreateToggle({Name = "Tracers", CurrentValue = false, Callback = function(V) Settings.Tracers = V end})
-VisualTab:CreateToggle({Name = "Esqueleto", CurrentValue = false, Callback = function(V) Settings.Skeleton = V end})
-VisualTab:CreateToggle({Name = "Vida", CurrentValue = false, Callback = function(V) Settings.Heal = V end})
-
--- // LOOP AIMBOT E FOV // --
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Thickness = 0.5
-FOVCircle.Color = Color3.fromRGB(255, 255, 255)
-FOVCircle.Transparency = 0.4
-FOVCircle.NumSides = 64
-
-RunService.RenderStepped:Connect(function()
-    local ScreenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    FOVCircle.Visible = Settings.ShowFOV
-    FOVCircle.Radius = Settings.FOV
-    FOVCircle.Position = ScreenCenter
-
-    -- Verificação de segurança: se o botão estiver OFF, nada abaixo será executado
-    if Settings.Aimbot == false then return end
-
-    local Target = nil
-    local ShortestDistance = Settings.FOV
-    
-    for _, v in pairs(Players:GetPlayers()) do
-        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild(Settings.TargetPart) and v.Character.Humanoid.Health > 0 then
-            if Settings.TeamCheck and v.Team == LocalPlayer.Team then continue end
-            
-            local Part = v.Character[Settings.TargetPart]
-            local Pos, OnScreen = Camera:WorldToViewportPoint(Part.Position)
-            local MyRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            
-            if MyRoot and OnScreen then
-                local Dist = (Part.Position - MyRoot.Position).Magnitude
-                if Dist <= Settings.MaxDistance then
-                    if IsVisible(Part) then
-                        local Mag = (Vector2.new(Pos.X, Pos.Y) - ScreenCenter).Magnitude
-                        if Mag < ShortestDistance then
-                            Target = Part
-                            ShortestDistance = Mag
-                        end
-                    end
-                end
-            end
-        end
-    end
-    
-    if Target and Settings.Aimbot then -- Segunda checagem para evitar delay de desativação
-        local Alpha = math.clamp(Settings.Precision / 100, 0.01, 1)
-        Camera.CFrame = Camera.CFrame:Lerp(CFrame.lookAt(Camera.CFrame.Position, Target.Position), Alpha)
-    end
+-- Botão de Alternar Visibilidade
+BotaoAlternar.MouseButton1Click:Connect(function()
+	ScreenPainel.Enabled = not ScreenPainel.Enabled
+	BotaoAlternar.Text = ScreenPainel.Enabled and "Fechar Painel" or "Abrir Painel"
 end)
+
+-- 3. LÓGICA DO ESP E ATUALIZAÇÃO INSTANTÂNEA
+local jogadorSelecionado = nil
+local espAtual = nil
+
+local function limparESP()
+	if espAtual then espAtual:Destroy(); espAtual = nil end
+end
+
+-- Função super rápida para ler inventário
+local function obterTextoInventario(player)
+	if not player or not player.Parent then return " Nenhum selecionado." end
+	local itens = {}
+	local equipado = "Nenhum"
+	
+	if player.Character then
+		for _, obj in ipairs(player.Character:GetChildren()) do
+			if obj:IsA("Tool") then
+				equipado = obj.Name
+				table.insert(itens, obj.Name .. " [Eq]")
+			end
+		end
+	end
+	
+	local backpack = player:FindFirstChild("Backpack")
+	if backpack then
+		for _, tool in ipairs(backpack:GetChildren()) do
+			if tool:IsA("Tool") then table.insert(itens, tool.Name) end
+		end
+	end
+	
+	return string.format(" Jogador: %s\n Equipado: %s\n\n Itens:\n • %s", player.Name, equipado, #itens > 0 and table.concat(itens, "\n • ") or "Vazio")
+end
+
+local function criarESP(player)
+	limparESP()
+	if not player or player == LocalPlayer or not player.Character then return end
+	
+	-- RESPOSTA IMEDIATA: Busca a cabeça sem usar WaitForChild para cortar o delay do clique
+	local head = player.Character:FindFirstChild("Head") or player.Character:FindFirstChild("HumanoidRootPart")
+	if not head then return end
+	
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "ESP_Vermelho"
+	billboard.Size = UDim2.new(0, 200, 0, 40)
+	billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+	billboard.AlwaysOnTop = true
+	
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.TextColor3 = Color3.fromRGB(255, 0, 0)
+	label.TextSize = 14
+	label.Font = Enum.Font.SourceSansBold
+	label.TextStrokeTransparency = 0
+	label.Parent = billboard
+	
+	billboard.Parent = head
+	espAtual = billboard
+	
+	-- Mantém o ESP grudado se o personagem morrer
+	local conexao
+	conexao = RunService.RenderStepped:Connect(function()
+		if not player.Parent or not player.Character or not billboard.Parent then
+			conexao:Disconnect()
+			return
+		end
+		
+		local itemEquipado = "Nenhum"
+		for _, obj in ipairs(player.Character:GetChildren()) do
+			if obj:IsA("Tool") then
+				itemEquipado = obj.Name
+				break
+			end
+		end
+		label.Text = string.format("%s (%s)", player.Name, itemEquipado)
+		
+		-- Atualiza o texto lateral dinamicamente
+		if jogadorSelecionado == player and ScreenPainel.Enabled then
+			TextoInventario.Text = obterTextoInventario(player)
+		end
+	end)
+end
+
+-- Lista de Interface
+local function atualizarListaInterface()
+	for _, child in ipairs(ListaJogadores:GetChildren()) do
+		if child:IsA("TextButton") then child:Destroy() end
+	end
+	
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			local Botao = Instance.new("TextButton")
+			Botao.Size = UDim2.new(1, -6, 0, 26)
+			Botao.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+			Botao.TextColor3 = Color3.fromRGB(255, 255, 255)
+			Botao.Text = " " .. player.Name
+			Botao.Font = Enum.Font.SourceSansBold
+			Botao.TextSize = 13
+			Botao.TextXAlignment = Enum.TextXAlignment.Left
+			Botao.BorderSizePixel = 0
+			Botao.Parent = ListaJogadores
+			
+			local UICornerB = Instance.new("UICorner")
+			UICornerB.CornerRadius = UDim.new(0, 4)
+			UICornerB.Parent = Botao
+			
+			-- CLIQUE INSTANTÂNEO
+			Botao.MouseButton1Click:Connect(function()
+				jogadorSelecionado = player
+				TextoInventario.Text = obterTextoInventario(player) -- Carrega o inventário na hora
+				criarESP(player) -- Ativa o ESP imediatamente
+			end)
+		end
+	end
+	ListaJogadores.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
+end
+
+-- Monitoramento de entrada/saída
+Players.PlayerAdded:Connect(atualizarListaInterface)
+Players.PlayerRemoving:Connect(function(player)
+	if jogadorSelecionado == player then
+		limparESP()
+		jogadorSelecionado = nil
+		TextoInventario.Text = " O jogador saiu."
+	end
+	atualizarListaInterface()
+end)
+
+-- Cria conexões de renascimento para atualizar o ESP instantaneamente se o alvo morrer
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function()
+		if jogadorSelecionado == player then
+			task.wait(0.1) -- micro delay apenas para o jogo carregar o corpo
+			criarESP(player)
+		end
+	end)
+end)
+
+for _, p in ipairs(Players:GetPlayers()) do
+	p.CharacterAdded:Connect(function()
+		if jogadorSelecionado == p then
+			task.wait(0.1)
+			criarESP(p)
+		end
+	end)
+end
+
+atualizarListaInterface()
